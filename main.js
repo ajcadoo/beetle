@@ -159,22 +159,94 @@
       .observe($(".hero"));
   }
 
-  /* ---------- Lightbox ---------- */
+  /* ---------- Lightbox ----------
+     The image element is sized to its "fit" box, then moved with
+     translate() + scale(). Pinch, double-tap, drag, swipe, trackpad pinch
+     and the 100% button all drive the same view state. Once you zoom
+     past ~1.25x the untouched original is swapped in for full detail. */
   const lb = $("#lightbox"), stage = $("#lb-stage"), img = $("#lb-img");
   const cap = $("#lb-cap"), count = $("#lb-count"), spin = $("#lb-spin");
   const zoomBtn = $("#lb-zoom"), dl = $("#lb-dl");
-  let cur = 0, zoomed = false, lastFocus = null, loadToken = 0;
+  const PAD = 12;
+  let cur = 0, lastFocus = null, loadToken = 0;
+  const v = { W: 0, H: 0, fw: 0, fh: 0, ox: 0, oy: 0, s: 1, tx: 0, ty: 0, ar: 4 / 3, fullW: 5168, hires: false };
+
+  function layout() {
+    const r = stage.getBoundingClientRect();
+    v.W = r.width; v.H = r.height;
+    const maxW = Math.max(1, v.W - PAD * 2), maxH = Math.max(1, v.H);
+    if (maxW / maxH > v.ar) { v.fh = maxH; v.fw = maxH * v.ar; } else { v.fw = maxW; v.fh = maxW / v.ar; }
+    v.ox = (v.W - v.fw) / 2; v.oy = (v.H - v.fh) / 2;
+    Object.assign(img.style, { left: v.ox + "px", top: v.oy + "px", width: v.fw + "px", height: v.fh + "px" });
+  }
+  // 100% = one original pixel per CSS pixel
+  const maxScale = () => Math.max(2, v.fullW / v.fw);
+  const zoomedIn = () => v.s > 1.01;
+
+  // Keep the picture covering the stage when bigger than it, centered when smaller
+  function clampT(s, tx, ty) {
+    const sw = v.fw * s, sh = v.fh * s;
+    tx = sw <= v.W ? (v.W - sw) / 2 - v.ox : Math.min(-v.ox, Math.max(v.W - sw - v.ox, tx));
+    ty = sh <= v.H ? (v.H - sh) / 2 - v.oy : Math.min(-v.oy, Math.max(v.H - sh - v.oy, ty));
+    return [tx, ty];
+  }
+  function apply(animate) {
+    img.classList.toggle("anim", !!animate);
+    img.style.transform = `translate(${v.tx}px, ${v.ty}px) scale(${v.s})`;
+    const z = zoomedIn();
+    lb.classList.toggle("is-zoomed", z);
+    zoomBtn.setAttribute("aria-pressed", String(z));
+    zoomBtn.textContent = z ? "Fit" : "100%";
+    if (v.s > 1.25) loadFull();
+  }
+  // Zoom to scale s, keeping the stage point (px, py) under the same spot of the picture
+  function zoomAt(s, px, py, animate) {
+    const u = (px - v.ox - v.tx) / v.s, w = (py - v.oy - v.ty) / v.s;
+    v.s = s;
+    [v.tx, v.ty] = clampT(s, px - v.ox - u * s, py - v.oy - w * s);
+    apply(animate);
+  }
+  function reset(animate) { v.s = 1; v.tx = 0; v.ty = 0; apply(animate); }
+  function settle() {
+    if (v.s <= 1.01) return reset(true);
+    const mx = maxScale();
+    if (v.s > mx) return zoomAt(mx, v.W / 2, v.H / 2, true);
+    [v.tx, v.ty] = clampT(v.s, v.tx, v.ty);
+    apply(true);
+  }
+  function loadFull() {
+    if (v.hires) return;
+    v.hires = true;
+    const p = P[cur], tok = loadToken;
+    spin.hidden = false;
+    const full = new Image();
+    full.onload = () => {
+      if (tok !== loadToken) return;
+      spin.hidden = true;
+      v.fullW = full.naturalWidth;
+      img.src = p.full;
+    };
+    full.onerror = () => { if (tok === loadToken) spin.hidden = true; };
+    full.src = p.full;
+  }
 
   function show(i) {
     cur = (i + P.length) % P.length;
-    const p = P[cur];
-    setZoom(false, null, true);
+    const p = P[cur], tok = ++loadToken;
+    v.hires = false;
+    spin.hidden = true;
+    reset(false);
     img.style.opacity = ".35";
-    const tok = ++loadToken;
     const pre = new Image();
-    pre.onload = () => { if (tok === loadToken) { img.src = p.web; img.style.opacity = "1"; } };
+    pre.onload = () => {
+      if (tok !== loadToken) return;
+      v.ar = pre.naturalWidth / pre.naturalHeight;
+      layout();
+      reset(false);
+      img.src = p.web;
+      img.style.opacity = "1";
+    };
     pre.src = p.web;
-    if (pre.complete) { img.src = p.web; img.style.opacity = "1"; }
     img.alt = p.cap;
     cap.textContent = p.cap;
     count.textContent = `${cur + 1} / ${P.length}`;
@@ -186,60 +258,16 @@
     lastFocus = document.activeElement;
     lb.hidden = false;
     document.documentElement.style.overflow = "hidden";
+    layout();
     show(i);
     $("#lb-close").focus();
   }
   function close() {
-    setZoom(false, null, true);
+    loadToken++;
+    reset(false);
     lb.hidden = true;
     document.documentElement.style.overflow = "";
     lastFocus && lastFocus.focus();
-  }
-
-  // fx, fy: point (0..1) of the image to center on when zooming in
-  function setZoom(on, pt, silent) {
-    if (on === zoomed) return;
-    const p = P[cur];
-    if (!on) {
-      zoomed = false;
-      loadToken++;
-      spin.hidden = true;
-      stage.classList.remove("zoomed");
-      lb.classList.remove("is-zoomed");
-      zoomBtn.setAttribute("aria-pressed", "false");
-      zoomBtn.textContent = "100%";
-      if (!silent) img.src = p.web;
-      return;
-    }
-    zoomed = true;
-    zoomBtn.setAttribute("aria-pressed", "true");
-    zoomBtn.textContent = "Fit";
-    lb.classList.add("is-zoomed");
-    spin.hidden = false;
-    const tok = ++loadToken;
-    const full = new Image();
-    full.onload = () => {
-      if (tok !== loadToken) return;
-      spin.hidden = true;
-      img.src = p.full;
-      stage.classList.add("zoomed");
-      const [fx, fy] = pt || [0.5, 0.5];
-      requestAnimationFrame(() => {
-        stage.scrollLeft = fx * img.naturalWidth - stage.clientWidth / 2;
-        stage.scrollTop = fy * img.naturalHeight - stage.clientHeight / 2;
-      });
-    };
-    full.onerror = () => { if (tok === loadToken) setZoom(false); };
-    full.src = p.full;
-  }
-  // Map a click to a point on the picture itself (object-fit: contain leaves letterbox bars)
-  function pointOnImage(e) {
-    const r = img.getBoundingClientRect();
-    const s = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
-    const w = img.naturalWidth * s, h = img.naturalHeight * s;
-    const x = r.left + (r.width - w) / 2, y = r.top + (r.height - h) / 2;
-    const clamp = v => Math.min(1, Math.max(0, v));
-    return [clamp((e.clientX - x) / w), clamp((e.clientY - y) / h)];
   }
 
   document.addEventListener("click", e => {
@@ -249,43 +277,123 @@
   $("#lb-close").addEventListener("click", close);
   $("#lb-prev").addEventListener("click", () => show(cur - 1));
   $("#lb-next").addEventListener("click", () => show(cur + 1));
-  zoomBtn.addEventListener("click", () => setZoom(!zoomed));
+  zoomBtn.addEventListener("click", () => zoomedIn() ? reset(true) : zoomAt(maxScale(), v.W / 2, v.H / 2, true));
+  window.addEventListener("resize", () => { if (!lb.hidden) { layout(); reset(false); } });
 
-  // Pointer handling: swipe to navigate, tap to zoom, drag to pan
-  let down = null;
+  /* ----- Gestures ----- */
+  const pts = new Map();          // active pointers -> [x, y] in stage coords
+  let g = null;                   // current gesture baseline
+  let pinched = false;            // any pinch since the first finger went down
+  let lastTap = 0, tapTimer = 0;
+  const stagePt = e => { const r = stage.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const midpoint = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+
+  function baseline() {
+    const arr = [...pts.values()];
+    if (arr.length >= 2) {
+      pinched = true;
+      g = { type: "pinch", d: dist(arr[0], arr[1]) || 1, mid: midpoint(arr[0], arr[1]), s: v.s, tx: v.tx, ty: v.ty };
+    } else if (arr.length === 1) {
+      g = { type: "pan", p: arr[0], tx: v.tx, ty: v.ty, tap: false };
+    } else g = null;
+  }
+
   stage.addEventListener("dragstart", e => e.preventDefault());
   stage.addEventListener("pointerdown", e => {
-    if (e.pointerType === "mouse") e.preventDefault(); // no native image drag / text selection
-    down ={ x: e.clientX, y: e.clientY, sl: stage.scrollLeft, st: stage.scrollTop, type: e.pointerType, moved: false };
-    if (zoomed && e.pointerType === "mouse") { stage.classList.add("dragging"); stage.setPointerCapture(e.pointerId); }
+    e.preventDefault();
+    try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+    const first = pts.size === 0;
+    if (first) pinched = false;
+    pts.set(e.pointerId, stagePt(e));
+    img.classList.remove("anim");
+    baseline();
+    if (first) Object.assign(g, { tap: true, start: pts.get(e.pointerId), kind: e.pointerType, onImg: e.target === img });
   });
+
   stage.addEventListener("pointermove", e => {
-    if (!down) return;
-    const dx = e.clientX - down.x, dy = e.clientY - down.y;
-    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) down.moved = true;
-    if (zoomed && down.type === "mouse") {
-      stage.scrollLeft = down.sl - dx;
-      stage.scrollTop = down.st - dy;
+    if (!pts.has(e.pointerId) || !g) return;
+    pts.set(e.pointerId, stagePt(e));
+    if (g.type === "pinch" && pts.size >= 2) {
+      const [a, b] = [...pts.values()];
+      const mid = midpoint(a, b);
+      const s = Math.min(maxScale() * 1.3, Math.max(0.6, g.s * dist(a, b) / g.d));
+      const u = (g.mid[0] - v.ox - g.tx) / g.s, w = (g.mid[1] - v.oy - g.ty) / g.s;
+      v.s = s;
+      v.tx = mid[0] - v.ox - u * s;
+      v.ty = mid[1] - v.oy - w * s;
+      apply(false);
+    } else if (g.type === "pan") {
+      const p = pts.get(e.pointerId), dx = p[0] - g.p[0], dy = p[1] - g.p[1];
+      if (Math.hypot(dx, dy) > 8) g.tap = false;
+      if (g.tap) return;
+      if (zoomedIn()) {
+        // Pan, with a little rubber band past the edges
+        const tx = g.tx + dx, ty = g.ty + dy, [cx, cy] = clampT(v.s, tx, ty);
+        v.tx = cx + (tx - cx) * 0.35;
+        v.ty = cy + (ty - cy) * 0.35;
+      } else if (!pinched) {
+        v.tx = dx; // swipe preview
+        v.ty = 0;
+      }
+      apply(false);
     }
   });
-  stage.addEventListener("pointerup", e => {
-    if (!down) return;
-    const d = down; down = null;
-    stage.classList.remove("dragging");
-    const dx = e.clientX - d.x, dy = e.clientY - d.y;
-    if (zoomed) { if (!d.moved) setZoom(false); return; }
-    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) { show(cur + (dx < 0 ? 1 : -1)); return; }
-    if (d.moved) return;
-    if (e.target === img) setZoom(true, pointOnImage(e));
-    else close();
-  });
-  stage.addEventListener("pointercancel", () => { down = null; stage.classList.remove("dragging"); });
+
+  function onTap(t) {
+    const [px, py] = t.start;
+    if (t.kind === "mouse") {
+      if (zoomedIn()) reset(true);
+      else if (t.onImg) zoomAt(maxScale(), px, py, true);
+      else close();
+      return;
+    }
+    const now = performance.now();
+    if (now - lastTap < 300) {                       // double-tap
+      lastTap = 0;
+      clearTimeout(tapTimer);
+      zoomedIn() ? reset(true) : zoomAt(Math.min(3, maxScale()), px, py, true);
+      return;
+    }
+    lastTap = now;
+    if (!t.onImg && !zoomedIn()) tapTimer = setTimeout(close, 300); // tap the backdrop to close
+  }
+
+  function onUp(e) {
+    if (!pts.has(e.pointerId)) return;
+    pts.delete(e.pointerId);
+    const was = g;
+    if (pts.size > 0) { baseline(); return; } // pinch -> one finger: re-baseline so nothing jumps
+    g = null;
+    if (!was) return;
+    if (e.type === "pointercancel") return settle();
+    if (was.type === "pan" && was.tap && !pinched) return onTap(was);
+    if (was.type === "pan" && !pinched && !zoomedIn() && Math.abs(v.tx) > 60) return show(cur + (v.tx < 0 ? 1 : -1));
+    settle();
+  }
+  stage.addEventListener("pointerup", onUp);
+  stage.addEventListener("pointercancel", onUp);
+
+  // Trackpad pinch (ctrl+wheel) zooms; two-finger scroll pans when zoomed
+  stage.addEventListener("wheel", e => {
+    e.preventDefault();
+    const [px, py] = stagePt(e);
+    if (e.ctrlKey) {
+      const s = Math.min(maxScale(), Math.max(1, v.s * Math.exp(-e.deltaY * 0.01)));
+      s <= 1.0001 ? reset(false) : zoomAt(s, px, py, false);
+    } else if (zoomedIn()) {
+      [v.tx, v.ty] = clampT(v.s, v.tx - e.deltaX, v.ty - e.deltaY);
+      apply(false);
+    }
+  }, { passive: false });
+  // iOS Safari: keep the page itself from zooming while the viewer is open
+  ["gesturestart", "gesturechange", "gestureend"].forEach(t => lb.addEventListener(t, e => e.preventDefault()));
 
   document.addEventListener("keydown", e => {
     if (lb.hidden) return;
-    if (e.key === "Escape") { zoomed ? setZoom(false) : close(); }
-    else if (e.key === "ArrowRight" && !zoomed) show(cur + 1);
-    else if (e.key === "ArrowLeft" && !zoomed) show(cur - 1);
-    else if (e.key === "z" || e.key === "Z") setZoom(!zoomed);
+    if (e.key === "Escape") zoomedIn() ? reset(true) : close();
+    else if (e.key === "ArrowRight" && !zoomedIn()) show(cur + 1);
+    else if (e.key === "ArrowLeft" && !zoomedIn()) show(cur - 1);
+    else if (e.key === "z" || e.key === "Z") zoomBtn.click();
   });
 })();
