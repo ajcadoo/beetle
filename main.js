@@ -253,8 +253,10 @@
 
   // Pointer handling: swipe to navigate, tap to zoom, drag to pan
   let down = null;
+  stage.addEventListener("dragstart", e => e.preventDefault());
   stage.addEventListener("pointerdown", e => {
-    down = { x: e.clientX, y: e.clientY, sl: stage.scrollLeft, st: stage.scrollTop, type: e.pointerType, moved: false };
+    if (e.pointerType === "mouse") e.preventDefault(); // no native image drag / text selection
+    down ={ x: e.clientX, y: e.clientY, sl: stage.scrollLeft, st: stage.scrollTop, type: e.pointerType, moved: false };
     if (zoomed && e.pointerType === "mouse") { stage.classList.add("dragging"); stage.setPointerCapture(e.pointerId); }
   });
   stage.addEventListener("pointermove", e => {
