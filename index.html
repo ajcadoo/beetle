@@ -28,12 +28,12 @@
        EDIT ME. This is the only block you need to change.
        ============================================================ */
     window.SITE = {
-      price: 8500,          // e.g. 9500 shows "$9,500". null shows "$[PRICE]".
+      price: 8000,          // e.g. 9500 shows "$9,500". null shows "$[PRICE]".
       sold: false,          // true: SOLD badge, price struck through, text buttons hidden.
       priceDrop: {
-        active: false,      // true: shows "Price dropped on DATE. Was $OLD."
-        date: "",           // e.g. "Nov 20"
-        oldPrice: null      // e.g. 10500
+        active: true,       // true: shows old price struck through + "Price dropped DATE".
+        date: "Nov 16",     // e.g. "Nov 20"
+        oldPrice: 8500      // e.g. 10500
       },
       phone: "512-843-5131",
       smsBody: "Hi! I'm interested in the Beetle."
@@ -69,7 +69,7 @@
         <p class="hero-sub">'60s Edition Convertible · Denim Blue · 119,643 miles</p>
       </div>
       <div class="hero-deal">
-        <p class="price-row"><span class="price" data-price>$[PRICE]</span></p>
+        <p class="price-row"><span class="price" data-price>$[PRICE]</span> <s class="price-old" data-price-old hidden></s></p>
         <p class="price-drop" data-price-drop hidden></p>
         <div class="hero-cta cta">
           <a class="btn btn-primary" data-sms href="#">Text <span data-phone>512-843-5131</span></a>
@@ -178,7 +178,7 @@
         <h2>How it's been kept</h2>
         <ul class="ticks">
           <li><strong>Garaged since 2020.</strong></li>
-          <li><strong>Soft top:</strong> treated with RaggTopp fabric protectant every spring.</li>
+          <li><strong>Soft top:</strong> doesn't leak at all. Treated with RaggTopp fabric protectant every spring.</li>
           <li>Oil changed every 5,000 miles, with regular fluid checks.</li>
           <li><strong>DSG fluid changed on schedule.</strong> This transmission needs fresh fluid every 40,000 miles, and it's been done. Next due at 140,000.</li>
           <li><strong>Tires:</strong> Pirelli Cinturato P7 All Season Plus II, installed November 2020. Good tread, rotated regularly.</li>

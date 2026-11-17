@@ -113,11 +113,13 @@ strong { font-weight: 600; }
 @media (min-width: 900px) {
   .hero-body { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 32px; }
   .hero-deal { text-align: right; }
-  .hero-deal .hero-cta { justify-content: flex-end; }
+  .hero-deal .hero-cta, .hero-deal .price-row { justify-content: flex-end; }
 }
 .hero h1 { font-size: clamp(40px, 7.4vw, 84px); font-weight: 700; color: var(--ink); letter-spacing: -0.025em; }
 .hero-sub { font-size: clamp(16px, 2.4vw, 20px); color: var(--ink-2); margin: 12px 0 8px; font-weight: 500; }
-.price-row { margin: 6px 0 4px; }
+.price-row { margin: 6px 0 4px; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.price-old { font: 600 clamp(20px, 3vw, 28px)/1 var(--font-display); color: var(--ink-2); text-decoration: line-through; text-decoration-color: var(--red); text-decoration-thickness: 2px; }
+.price-old[hidden] { display: none; }
 .price { font: 700 clamp(36px, 6vw, 56px)/1 var(--font-display); color: var(--denim-deep); }
 .price-drop { font-size: 15px; color: var(--red); font-weight: 600; margin: 4px 0 0; }
 .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
@@ -263,7 +265,7 @@ strong { font-weight: 600; }
 /* Sold state */
 .is-sold .badge-sold { display: inline-block; }
 .is-sold .price { text-decoration: line-through; text-decoration-thickness: 4px; text-decoration-color: var(--red); opacity: .6; }
-.is-sold .cta, .is-sold .price-drop { display: none !important; }
+.is-sold .cta, .is-sold .price-drop, .is-sold .price-old { display: none !important; }
 
 /* ---------- Lightbox ---------- */
 .lb {

@@ -10,7 +10,7 @@ Everything you'll want to change is in the `window.SITE` block near the top of `
 |---|---|
 | `price: 9500` | Shows "$9,500" in the hero. `null` shows `$[PRICE]`. |
 | `sold: true` | Adds a red SOLD badge, strikes through the price, hides every Text button. |
-| `priceDrop: { active: true, date: "Nov 20", oldPrice: 10500 }` | Shows "Price dropped on Nov 20. Was $10,500." |
+| `priceDrop: { active: true, date: "Nov 20", oldPrice: 10500 }` | Shows ~~$10,500~~ struck through next to the price, plus "Price dropped Nov 20". |
 | `phone` / `smsBody` | Number and prefilled message for every Text button. |
 
 Copy lives directly in `index.html`. Flaw descriptions and photo captions are in `main.js`.

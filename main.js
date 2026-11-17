@@ -62,7 +62,7 @@
     39: "A small chip and a slightly uneven gap where the front fender meets the bumper.",
     40: "A shallow dent in the rear fender, just behind the door. The paint looks intact.",
     41: "A crease and some scuffs along the rocker panel below the door, just ahead of the rear wheel.",
-    42: "The fabric shows fading, fold marks and a few light scuffs from years of opening and closing.",
+    42: "The fabric shows fading, fold marks and a few light scuffs from years of opening and closing. It's cosmetic. The top doesn't leak.",
   };
 
   /* ---------- Render gallery ---------- */
@@ -142,8 +142,11 @@
   if (SITE.sold) document.body.classList.add("is-sold");
   const drop = SITE.priceDrop || {};
   if (drop.active && drop.oldPrice) {
+    const old = $("[data-price-old]");
+    old.textContent = money(drop.oldPrice);
+    old.hidden = false;
     const el = $("[data-price-drop]");
-    el.textContent = `Price dropped${drop.date ? " on " + drop.date : ""}. Was ${money(drop.oldPrice)}.`;
+    el.textContent = `Price dropped${drop.date ? " " + drop.date : ""}`;
     el.hidden = false;
   }
   const digits = String(SITE.phone || "").replace(/\D/g, "");
