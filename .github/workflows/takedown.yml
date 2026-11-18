@@ -1,0 +1,39 @@
+# Takes the sale site offline on Dec 18, 2026 by removing every site file
+# from main (this workflow stays behind; GITHUB_TOKEN can't delete workflow files).
+# To cancel: delete this file and push.
+name: Take site offline
+
+on:
+  schedule:
+    - cron: "0 15 18 12 *"   # Dec 18, 15:00 UTC (9am Central)
+
+permissions:
+  contents: write
+  pages: write
+
+jobs:
+  takedown:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only run in 2026
+        id: guard
+        run: |
+          if [ "$(date -u +%Y)" = "2026" ]; then echo "go=true" >> "$GITHUB_OUTPUT"; fi
+
+      - uses: actions/checkout@v4
+        if: steps.guard.outputs.go == 'true'
+
+      - name: Remove site files
+        if: steps.guard.outputs.go == 'true'
+        run: |
+          git rm -r --quiet -- . ':!.github'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Take sale site offline"
+          git push
+
+      - name: Rebuild Pages so the site goes dark
+        if: steps.guard.outputs.go == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds"

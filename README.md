@@ -33,3 +33,7 @@ GitHub Pages redeploys in about a minute.
 ```bash
 python3 -m http.server 8080
 ```
+
+## Automatic takedown
+
+`.github/workflows/takedown.yml` removes every site file from `main` on **Dec 18, 2026** (9am Central), which takes the site offline. To cancel or change the date, edit or delete that file and push.
